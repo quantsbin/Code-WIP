@@ -1,0 +1,243 @@
+import plotly
+plotly.tools.set_credentials_file(username='Quantsbin', api_key='hevS6mwUT0vCNv5yJnhp')
+
+import plotly.plotly as py
+import plotly.graph_objs as go
+from datetime import datetime
+from pandas_datareader import data
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+import pandas as pd
+import matplotlib.pyplot as pp
+
+start_date = '2014-12-31'
+
+end_date = '2017-12-31'
+
+ticker = ['AAPL']
+
+df = data.DataReader(ticker, 'morningstar', start_date,end_date).reset_index()
+
+df = df.set_index('Date').pivot(columns='Symbol')
+
+df[('ln_return', ticker[0])] = (np.log(df[('Close',ticker[0])]/df[('Close',ticker[0])].shift(1)))
+df[('Volatility', ticker[0])] = df[('ln_return', ticker[0])].rolling(window=30).std()*np.sqrt(252)                                
+
+trace_close = go.Scatter(
+    x=df.index,
+    y=df[('Close',ticker[0])],
+    name = ticker[0] +  " Adj. Close",
+    line = dict(color = '#17BECF'),
+    opacity = 1)
+
+trace_vol = go.Scatter(
+    x=df.index,
+    y=df[('Volatility', ticker[0])] ,
+    name = ticker[0] +  " Volatility",
+    line = dict(color = '#FFA500'),
+    opacity = 0.5,
+    yaxis = "y2")
+
+df1 = [trace_close, trace_vol]
+
+layout = dict(
+    title=ticker[0]+" Price and Volatility Series",
+    xaxis=dict(
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1,
+                     label='1m',
+                     step='month',
+                     stepmode='backward'),
+                dict(count=6,
+                     label='6m',
+                     step='month',
+                     stepmode='backward'),
+                dict(step='all')
+            ])
+        ),
+        rangeslider=dict(),
+        type='date'
+    ),
+    yaxis=dict(
+        title = "Close"),
+    yaxis2=dict(title = "Volatility",
+               anchor = "free",
+               overlaying = "y",
+               side = "right",
+               position = 1)
+)
+
+fig = dict(data=df1, layout=layout)
+
+py.iplot(fig, filename = ticker[0]+" Price and Volatility Series")
+
+
+
+#Roll Drawdown
+
+start_date = datetime(2006, 1, 1)
+
+end_date = datetime(2017, 12, 31)
+
+ticker = ['spx']
+
+df = data.DataReader(ticker, 'morningstar', start_date,end_date).reset_index()
+df = df.set_index('Date')
+window = 252
+Roll_Max = df['Close'].rolling(window, min_periods=1).max()
+Daily_Drawdown = df['Close']/Roll_Max - 1.0
+
+Max_Daily_Drawdown = Daily_Drawdown.rolling(window, min_periods=1).min()
+
+Daily_Drawdown.plot(kind = 'area', color="#aac4ef")
+Max_Daily_Drawdown.plot(color = "red")
+pp.title("Rolling DrawDown")
+pp.show()
+
+#Max DrawDown
+
+df = data.DataReader(ticker, 'morningstar', start_date,end_date).reset_index()
+df = df.set_index('Date')
+
+i = np.argmax(np.maximum.accumulate(np.array(df["Close"])) - np.array(df["Close"])) # end of the period
+j = np.argmax(np.array(df["Close"][:i])) # start of period
+
+fig, axes = plt.subplots(1,1, figsize=(10,7), sharex=True)
+df["Close"].plot(subplots=True, ax=axes)
+
+axes.axvspan(df.index[j],df.index[i],  color=sns.xkcd_rgb['red'], alpha=0.5)
+plt.title("Maximum Drawdown (highlighted in Red)")
+plt.show()
+
+
+
+start_date = datetime(2015, 12, 31)
+
+end_date = datetime(2017, 12, 31)
+
+ticker = ['aapl', 'goog', 'SPX']
+
+df = data.DataReader(ticker, 'morningstar', start_date,end_date).reset_index()
+
+df = df.set_index('Date').pivot(columns='Symbol')
+df = df/df.iloc[0,:]*100
+
+# print(df.head())
+
+trace_1 = go.Scatter(
+    x=df.index,
+    y=df[('Close',ticker[0])],
+    name = ticker[0] +  " Close",
+    line = dict(color = '#17BECF'),
+    opacity = 1)
+
+trace_2 = go.Scatter(
+    x=df.index,
+    y=df[('Close',ticker[1])],
+    name = ticker[1] +  " Close",
+    line = dict(color = '#800080'),
+    opacity = 1)
+
+trace_3 = go.Scatter(
+    x=df.index,
+    y=df[('Close',ticker[2])],
+    name = ticker[2] +  " Close",
+    line = dict(color = '#000000', width = 3),
+    opacity = 0.5)
+
+
+df1 = [trace_1, trace_2, trace_3]
+
+layout = dict(
+    title="Normalised Price Series",
+    xaxis=dict(
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1,
+                     label='1m',
+                     step='month',
+                     stepmode='backward'),
+                dict(count=6,
+                     label='6m',
+                     step='month',
+                     stepmode='backward'),
+                dict(step='all')
+            ])
+        ),
+        rangeslider=dict(),
+        type='date'
+    ),
+    yaxis=dict(
+        title = "Close")
+)
+
+fig = dict(data=df1, layout=layout)
+py.iplot(fig, filename = "Normalised Price Series")
+
+
+
+start_date = datetime(2010, 1, 1)
+
+end_date = datetime(2017, 12, 31)
+
+ticker = ['aapl']
+
+df = data.DataReader(ticker, 'morningstar', start_date,end_date).reset_index()
+df.set_index('Date', inplace=True)
+
+df = df.resample('M').last()
+df['log_returns'] = (np.log(df['Close']/df['Close'].shift(1)))
+
+df['month'] = df.index.strftime('%b')
+df['year'] = df.index.year
+
+df = df.groupby(['year', 'month'], sort=False)['log_returns'].last()
+df = df.unstack(level=0)
+
+sns.heatmap(df, annot=True, fmt=".2f", cmap="RdYlGn")
+
+plt.title('Seasonality', fontsize=16)
+plt.show()
+
+
+
+start_date = datetime(2017, 1, 1)
+
+end_date = datetime(2017, 12, 31)
+
+ticker = ['f','gm','cvs','unh', 'mck','xom', "brk.b", 'wmt','goog', 'aapl']
+
+df = data.DataReader(ticker, 'morningstar', start_date,end_date).reset_index()
+df = df.set_index('Date').pivot(columns='Symbol')
+
+df_log_returns = (np.log(df[('Close')]/df[('Close')].shift(1)))
+
+df_corr = df_log_returns.corr(method = "pearson")
+
+mask = np.ones_like(df_corr, dtype=np.bool)
+mask[np.tril_indices_from(mask)] = False
+
+sns.heatmap(df_corr, mask=mask, annot=True, fmt=".2f", cmap="RdYlGn")
+
+plt.title('Correlation', fontsize=16)
+plt.show()
+
+
+start_date = datetime(2017, 1, 1)
+
+end_date = datetime(2017, 12, 31)
+
+ticker = ['f','gm','goog', 'aapl']
+
+df = data.DataReader(ticker, 'morningstar', start_date,end_date).reset_index()
+
+df = df.set_index('Date').pivot(columns='Symbol')
+
+df_log_returns = (np.log(df[('Close')]/df[('Close')].shift(1)))
+
+sns.pairplot(df_log_returns[1:])
+
+plt.show()
