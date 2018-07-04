@@ -241,3 +241,114 @@ df_log_returns = (np.log(df[('Close')]/df[('Close')].shift(1)))
 sns.pairplot(df_log_returns[1:])
 
 plt.show()
+
+import os
+import pandas as pd
+
+directory = os.getcwd()
+
+'''Reading Prices'''
+InputFile = pd.ExcelFile(os.path.join(directory,'MLFPMRET.xlsx'))
+RawData = InputFile.parse("Data")
+CleanData = InputFile.parse("CleanData").set_index("Date")
+
+UnderlyingWeights = pd.read_csv(os.path.join(directory,"Underlying_Weights.csv"))
+UnderlyingWeights["PriceDate"] = pd.to_datetime(UnderlyingWeights["PriceDate"])
+UnderlyingWeights = UnderlyingWeights.pivot(index = "PriceDate", columns = "InstrumentVTId", values = "FinalExposure")
+
+import matplotlib.pyplot as plt
+
+import numpy as np
+import matplotlib.ticker as ticker
+
+
+plt.style.use("ggplot")
+
+underlyings = ["SPX", "NDX", "SX5E"]
+windows = [10, 200]
+for tickers in underlyings:
+    for n in windows:
+        CleanData[str(n)+"d_MA_"+tickers] = CleanData[tickers].rolling(window = n).mean()
+        
+start_date = pd.to_datetime('2018-04-02')
+
+end_date = pd.to_datetime('2018-07-02')
+
+
+def UnderlyingPlot(CleanData, UnderlyingWeights, start_date, end_date, ticker):
+    
+    df = CleanData.loc[(CleanData.index>=start_date)&(CleanData.index<=end_date),:]
+    df2 = UnderlyingWeights.loc[(UnderlyingWeights.index>=start_date)&(UnderlyingWeights.index<=end_date),:]
+    plt.xticks(np.arange(len(df.index)), df.index.strftime('%m/%d/%Y'), rotation = 90)
+
+    plt.plot(np.arange(len(df.index)), df[ticker], color = '#000000')
+
+    plt.plot(np.arange(len(df.index)), df["10d_MA_"+ticker], color = '#0000FF')
+    plt.plot(np.arange(len(df.index)), df["200d_MA_"+ticker], color = '#FF6103')
+
+    idx = np.argwhere(np.diff(np.sign(df[ticker] - df["10d_MA_"+ticker])) != 0).reshape(-1) + 1
+
+
+    plt.plot(np.arange(len(df.index))[idx], df["10d_MA_"+ticker][idx], 'ro', markersize=10)
+
+    idx = np.argwhere(np.diff(np.sign(df[ticker] - df["200d_MA_"+ticker])) != 0).reshape(-1) + 1
+
+
+    plt.plot(np.arange(len(df.index))[idx], df["200d_MA_"+ticker][idx], 'gs', markersize=8, alpha = 0.7)
+    
+  
+    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
+               ncol=2, mode="expand", borderaxespad=0.)
+
+ 
+    
+    ax = plt.axes()
+    ax.set_xlabel("Date", color = 'b')
+    ax.set_ylabel(ticker+" Level", color = 'b')
+    
+    ax2 = ax.twinx()
+    
+    s2 = df2[ticker]
+    ax2.bar(np.arange(len(df2.index)), s2, align='center', alpha = 0.3, color = 'r')
+    ax2.set_ylabel('Final Exposure', color='b')
+    ax2.tick_params('y', colors='r')
+    plt.xticks(np.arange(len(df.index), step = 5), df.index.strftime('%m/%d/%Y')[np.arange(len(df.index), step = 5)], rotation = 90)
+
+    plt.show()
+    
+    
+    
+    
+for ticker in underlyings:
+    UnderlyingPlot(CleanData, UnderlyingWeights, start_date, end_date, ticker)
+    
+df = CleanData.loc[(CleanData.index>=start_date)&(CleanData.index<=end_date),:]
+# df["MLFPMRET_Return"] = df["MLFPMRET"]/df["MLFPMRET"].shift(1) -1
+
+plt.xticks(np.arange(len(df.index)), df.index.strftime('%m/%d/%Y'), rotation = 90)
+plt.plot(np.arange(len(df.index)),df["MLFPMRET"], color = '#000000')
+plt.xticks(np.arange(len(df.index), step = 5), df.index.strftime('%m/%d/%Y')[np.arange(len(df.index), step = 5)], rotation = 90)
+
+ax = plt.axes()
+ax.set_xlabel("Date", color = 'b')
+ax.set_ylabel("MLFPMRET Level", color = 'b')
+
+
+plt.show()
+
+
+from IPython.display import HTML
+
+HTML('''<script>
+code_show=true; 
+function code_toggle() {
+ if (code_show){
+ $('div.input').hide();
+ } else {
+ $('div.input').show();
+ }
+ code_show = !code_show
+} 
+$( document ).ready(code_toggle);
+</script>
+<form action="javascript:code_toggle()"><input type="submit" value="Click here to toggle on/off the raw code."></form>''')
